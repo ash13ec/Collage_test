@@ -13,7 +13,7 @@ export type ShapeOption =
 
 /** Only rectangle (procedural) + SVG-based masks. */
 export const SHAPE_OPTIONS: ShapeOption[] = [
-  { id: 'rectangle', label: 'Rectangle', type: 'rectangle' },
+  { id: 'rectangle', label: 'Square', type: 'rectangle' },
   { id: 'mask-building', label: 'Building', type: 'mask', svg: buildingSvg },
   { id: 'mask-building-2', label: 'Building 2', type: 'mask', svg: building2Svg },
   { id: 'mask-grass', label: 'Grass', type: 'mask', svg: grassSvg },

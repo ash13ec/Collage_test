@@ -200,13 +200,13 @@ export default function App({ layers, selectedId, setLayers, setSelectedId }: Ap
                     Center view
                   </button>
                 )}
-                <button
+                {/* <button
                   className="primary-action"
                   onClick={() => addLayer(PHOTO_BANK[layers.length % PHOTO_BANK.length].src)}
                 >
                   <Plus size={18} />
                   Add cutout
-                </button>
+                </button> */}
               </div>
             </div>
             <div className="photobank-strip" aria-label="Photobank">
@@ -223,11 +223,11 @@ export default function App({ layers, selectedId, setLayers, setSelectedId }: Ap
                   </button>
                 ))}
               </div>
-              <label className="photobank-strip__upload">
+              {/* <label className="photobank-strip__upload">
                 <Upload size={18} aria-hidden />
                 <span>Upload</span>
                 <input type="file" accept="image/*" onChange={handleUpload} />
-              </label>
+              </label> */}
             </div>
 
             <div className="canvas-area">
@@ -465,18 +465,6 @@ function LayerEditor({
       </div>
 
       <div className="action-row">
-        <button className="secondary-action" onClick={() => onMove('down')} disabled={layerIndex === 0}>
-          <ArrowDown size={16} />
-          Back
-        </button>
-        <button className="secondary-action" onClick={() => onMove('up')} disabled={layerIndex === layerCount - 1}>
-          <ArrowUp size={16} />
-          Front
-        </button>
-        <button className="secondary-action" onClick={() => onUpdate({ rotation: 0 })}>
-          <RotateCcw size={16} />
-          Reset
-        </button>
         <button className="secondary-action" onClick={onDuplicate}>
           <ImagePlus size={16} />
           Duplicate

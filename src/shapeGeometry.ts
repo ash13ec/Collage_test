@@ -15,8 +15,8 @@ export function createRectangleMaskShape(inverted: boolean): THREE.Shape {
     const s = new THREE.Shape();
     s.moveTo(-1, -1);
     s.lineTo(1, -1);
-    s.lineTo(1, 1);
-    s.lineTo(-1, 1);
+    s.lineTo(1, 0);
+    s.lineTo(-1, 0);
     s.lineTo(-1, -1);
     return s;
   }
@@ -132,12 +132,17 @@ function shapeToUnitSquare(shape: THREE.Shape): THREE.Shape {
  * Inverted: image visible outside the silhouette; hole = mask interior.
  */
 function withInvertedHole(innerUnit: THREE.Shape, outerSize: number): THREE.Shape {
+  const geom = new THREE.ShapeGeometry(innerUnit, 8);
+  geom.computeBoundingBox();
+  const b = geom.boundingBox!;
+  geom.dispose();
+  const pad = 0.05;
   const outer = new THREE.Shape();
-  outer.moveTo(-outerSize, -outerSize);
-  outer.lineTo(outerSize, -outerSize);
-  outer.lineTo(outerSize, outerSize);
-  outer.lineTo(-outerSize, outerSize);
-  outer.lineTo(-outerSize, -outerSize);
+  outer.moveTo(b.min.x - pad, b.min.y - pad);
+  outer.lineTo(b.max.x + pad, b.min.y - pad);
+  outer.lineTo(b.max.x + pad, b.max.y + pad);
+  outer.lineTo(b.min.x - pad, b.max.y + pad);
+  outer.lineTo(b.min.x - pad, b.min.y - pad);
   const pathPoints = innerUnit.getPoints( 200 );
   const hole = new THREE.Path( pathPoints );
   outer.holes.push(hole);

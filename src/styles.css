@@ -14,7 +14,7 @@
   --color-surface-raised: #fafafa;
   --color-surface-pressed: #f0f0f0;
   --color-border-hairline: #ffede4;
-  --color-scrollbar: #cccccc;
+  --color-scrollbar: #ffede4;
   --color-text-secondary: #444444;
   --color-accent: #0a0a0a;
 
@@ -93,7 +93,7 @@ button {
 
 .preview-panel {
   background: var(--color-canvas);
-  border: 2px solid var(--color-ink);
+  /* border: 2px solid var(--color-ink); */
   border-radius: 0;
   box-shadow: none;
   display: flex;
@@ -219,13 +219,6 @@ button {
   padding: 2px 2px 8px;
   scroll-snap-type: x proximity;
   -webkit-overflow-scrolling: touch;
-}
-
-.photobank-strip__scroller::-webkit-scrollbar {
-  height: 6px;
-}
-
-.photobank-strip__scroller::-webkit-scrollbar-thumb {
   background: var(--color-scrollbar);
   border-radius: 0;
 }
@@ -240,7 +233,7 @@ button {
   background: var(--color-surface);
   cursor: pointer;
   scroll-snap-align: start;
-  transition: transform 0.1s ease, background 0.1s ease;
+  transition: transform 0.1s ease, background 0.1s ease, scale 0.1s ease;
 }
 
 .photobank-strip__item:hover {
@@ -931,15 +924,24 @@ input[type="color"] {
     width: 100%;
     justify-content: center;
   }
+  .layer-panel-reveal {
+    top:100%;
+    left:0;
+  }
 
   .layer-floating {
-    position: static;
+    position: absolute;
+    left: 0;
+    top: 100%;
     width: 100%;
-    max-width: none;
-    max-height: min(50vh, 420px);
-    margin-top: 10px;
+    height: auto;
+    max-height: none;
     box-shadow: none;
+    margin-top: 10px;
   }
+
+  
+  
 
   .layer-panel-reveal {
     top: 8px;
