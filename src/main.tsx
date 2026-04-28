@@ -1,7 +1,7 @@
+import './styles.css';
 import { StrictMode, useState } from 'react';
 import { createRoot } from 'react-dom/client';
 import App, { starterLayers } from './App';
-import './styles.css';
 
 function Root() {
   const initialLayers = starterLayers();

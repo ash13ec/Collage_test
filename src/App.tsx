@@ -1,24 +1,25 @@
-import { ChangeEvent, useMemo } from 'react';
+import { ChangeEvent, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import {
   ArrowDown,
   ArrowUp,
-  Box,
   ImagePlus,
-  Images,
   Layers,
-  PaintBucket,
+  Maximize2,
+  PanelLeft,
   Plus,
   RotateCcw,
-  Scissors,
+  SlidersVertical,
+  Target,
   Trash2,
   Upload,
 } from 'lucide-react';
 import { PHOTO_BANK } from './photobank';
+import { DEFAULT_SHAPE, SHAPE_OPTIONS, type ShapeId } from './shapeCatalog';
+import { readFillSwatches } from './fillSwatches';
 import { ThreeCollagePreview } from './ThreeCollagePreview';
 import type { CollageLayer, FillMode, ShapeKind } from './types';
 
-const SHAPES: ShapeKind[] = ['circle', 'square', 'triangle', 'blob', 'star', 'hexagon'];
-const COLORS = ['#ff6b6b', '#ffd166', '#06d6a0', '#4dabf7', '#9d4edd', '#f8f9fa', '#111827'];
+const FILL_SWATCHES = readFillSwatches();
 
 type AppProps = {
   layers: CollageLayer[];
@@ -28,16 +29,18 @@ type AppProps = {
 };
 
 const makeLayer = (image: string, index: number, patch: Partial<CollageLayer> = {}): CollageLayer => {
+  const list = SHAPE_OPTIONS as { id: ShapeId }[];
   const layer: CollageLayer = {
     id: crypto.randomUUID(),
     name: `Layer ${index + 1}`,
     image,
-    shape: SHAPES[index % SHAPES.length],
+    shape: (list[index % list.length]?.id ?? DEFAULT_SHAPE) as ShapeKind,
+    maskInverted: false,
     fillMode: 'photo',
-    color: COLORS[index % COLORS.length],
-    rotation: Math.round((Math.random() * 60 - 30) * 10) / 10,
-    x: Math.round((Math.random() * 2 - 1) * 1.8 * 10) / 10,
-    y: Math.round((Math.random() * 2 - 1) * 1.1 * 10) / 10,
+    color: FILL_SWATCHES[index % FILL_SWATCHES.length],
+    rotation: 0,
+    x: 0,
+    y: 0,
     scale: 1,
     depth: index,
   };
@@ -45,26 +48,90 @@ const makeLayer = (image: string, index: number, patch: Partial<CollageLayer> = 
   return { ...layer, ...patch, id: patch.id ?? layer.id, depth: patch.depth ?? layer.depth };
 };
 
-export const starterLayers = (): CollageLayer[] => [
-  makeLayer(PHOTO_BANK[0].src, 0, { name: 'Sunset circle', x: -0.85, y: 0.35, scale: 0.98 }),
-  makeLayer(PHOTO_BANK[1].src, 1, { name: 'Leaf star', shape: 'star', x: 0.82, y: 0.25, scale: 0.78, rotation: -14 }),
-  makeLayer(PHOTO_BANK[2].src, 2, {
-    name: 'Paper triangle',
-    shape: 'triangle',
-    fillMode: 'color',
-    color: '#ffd166',
-    x: -0.15,
-    y: -0.72,
-    scale: 0.9,
-    rotation: 11,
-  }),
-];
+const randomShapeId = () => {
+  const list = SHAPE_OPTIONS as { id: ShapeId }[];
+  return list[Math.floor(Math.random() * list.length)]?.id ?? DEFAULT_SHAPE;
+};
+
+const randomPhotoSource = () => {
+  if (PHOTO_BANK.length === 0) return '';
+  return PHOTO_BANK[Math.floor(Math.random() * PHOTO_BANK.length)]!.src;
+};
+
+/** Three random cutouts with random photobank images, laid out in the central board area. */
+export const starterLayers = (): CollageLayer[] => {
+  return [0, 1, 2].map((i) => {
+    const j = (Math.random() * 2 - 1) * 0.9;
+    const k = (Math.random() * 2 - 1) * 0.75;
+    return makeLayer(randomPhotoSource(), i, {
+      name: `Layer ${i + 1}`,
+      shape: randomShapeId() as ShapeKind,
+      x: j,
+      y: k,
+      fillMode: 'photo',
+    });
+  });
+};
+
+type ViewMode = 'edit' | 'preview';
+
+function ViewModeSegment({ value, onChange }: { value: ViewMode; onChange: (m: ViewMode) => void }) {
+  return (
+    <div className="view-mode-segment" role="group" aria-label="Workspace mode">
+      <div className="view-mode-segment__track" data-active={value}>
+        <div className="view-mode-segment__thumb" aria-hidden />
+        <button
+          type="button"
+          className={`view-mode-segment__cell ${value === 'edit' ? 'is-active' : ''}`}
+          aria-pressed={value === 'edit'}
+          onClick={() => onChange('edit')}
+        >
+          <span className="view-mode-segment__name">Edit</span>
+          <span className="view-mode-segment__hint">Flat, centered</span>
+        </button>
+        <button
+          type="button"
+          className={`view-mode-segment__cell ${value === 'preview' ? 'is-active' : ''}`}
+          aria-pressed={value === 'preview'}
+          onClick={() => onChange('preview')}
+        >
+          <span className="view-mode-segment__name">Preview</span>
+          <span className="view-mode-segment__hint">Orbit 3D</span>
+        </button>
+      </div>
+    </div>
+  );
+}
 
 export default function App({ layers, selectedId, setLayers, setSelectedId }: AppProps) {
+  const [viewMode, setViewMode] = useState<ViewMode>('edit');
+  const [centerViewKey, setCenterViewKey] = useState(0);
+  const [layerPanelOpen, setLayerPanelOpen] = useState(true);
+  const canvasHostRef = useRef<HTMLDivElement>(null);
+  const [canvasSize, setCanvasSize] = useState({ w: 1200, h: 640 });
+
+  useLayoutEffect(() => {
+    const el = canvasHostRef.current;
+    if (!el) return;
+    const measure = () => {
+      const w = el.clientWidth;
+      const h = el.clientHeight;
+      if (w > 0 && h > 0) {
+        setCanvasSize((prev) => (prev.w === w && prev.h === h ? prev : { w, h }));
+      }
+    };
+    measure();
+    const ro = new ResizeObserver(measure);
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, []);
+
   const selectedLayer = useMemo(
     () => layers.find((layer) => layer.id === selectedId) ?? layers[0],
     [layers, selectedId],
   );
+
+  const reindexDepths = (list: CollageLayer[]): CollageLayer[] => list.map((layer, i) => ({ ...layer, depth: i }));
 
   const updateLayer = (id: string, patch: Partial<CollageLayer>) => {
     setLayers((current) => current.map((layer) => (layer.id === id ? { ...layer, ...patch } : layer)));
@@ -82,7 +149,7 @@ export default function App({ layers, selectedId, setLayers, setSelectedId }: Ap
     if (!selectedLayer) return;
 
     setLayers((current) => {
-      const next = current.filter((layer) => layer.id !== selectedLayer.id);
+      const next = reindexDepths(current.filter((layer) => layer.id !== selectedLayer.id));
       setSelectedId(next.at(-1)?.id ?? '');
       return next;
     });
@@ -110,128 +177,181 @@ export default function App({ layers, selectedId, setLayers, setSelectedId }: Ap
 
       const next = [...current];
       [next[index], next[target]] = [next[target], next[index]];
-      return next;
+      return reindexDepths(next);
     });
   };
 
   return (
     <main className="app-shell">
       <section className="hero">
-        <aside className="intro">
-          <p className="eyebrow">Lightweight collage studio</p>
-          <h1>Cut photo shapes, stack layers, and preview real 3D spacing.</h1>
-          <p className="intro-text">
-            Upload your own photos or start from the built-in photobank, then fill each cutout with
-            the original image or a flat color. Three.js gives every layer a small z-distance so the
-            finished board has a handmade sense of space.
-          </p>
-          <div className="feature-list">
-            <Feature icon={<Scissors size={20} />} title="Shape cutouts" text="Circle, square, triangle, star, blob, and hexagon masks." />
-            <Feature icon={<PaintBucket size={20} />} title="Photo or color fill" text="Keep the original image or switch to a pure color swatch." />
-            <Feature icon={<Box size={20} />} title="30 degree rotation" text="Layer rotation is constrained from -30deg to 30deg." />
-          </div>
-        </aside>
-
         <section className="workspace">
           <section className="preview-panel">
             <div className="preview-toolbar">
-              <div>
-                <h2>Collage board</h2>
-                <span className="hint">Drag the preview to tilt the finished board.</span>
-              </div>
-              <button className="primary-action" onClick={() => addLayer(PHOTO_BANK[layers.length % PHOTO_BANK.length].src)}>
-                <Plus size={18} />
-                Add cutout
-              </button>
-            </div>
-            <ThreeCollagePreview layers={layers} selectedLayerId={selectedId} width={760} height={520} />
-            {layers.length === 0 && (
-              <div className="empty-board">
-                <p>No cutouts yet. Choose a photobank image or upload a photo to begin.</p>
-              </div>
-            )}
-          </section>
-
-          <section className="studio-panel">
-            <div className="controls-grid">
-              <div className="control-card">
-                <h3>
-                  <Images size={18} />
-                  Photobank
-                </h3>
-                <div className="photobank-grid">
-                  {PHOTO_BANK.map((photo) => (
-                    <button
-                      key={photo.id}
-                      className="photo-option"
-                      onClick={() => addLayer(photo.src, { name: photo.name })}
-                    >
-                      <img src={photo.src} alt={photo.name} />
-                    </button>
-                  ))}
-                </div>
-                <label className="upload-button">
-                  <Upload size={17} />
-                  Upload photo
-                  <input type="file" accept="image/*" onChange={handleUpload} />
-                </label>
-              </div>
-
-              <div className="control-card">
-                <h3>
-                  <Layers size={18} />
-                  Selected layer
-                </h3>
-                {selectedLayer ? (
-                  <LayerEditor
-                    layer={selectedLayer}
-                    layerIndex={layers.findIndex((layer) => layer.id === selectedLayer.id)}
-                    layerCount={layers.length}
-                    onDuplicate={() => addLayer(selectedLayer.image, { ...selectedLayer, id: undefined })}
-                    onMove={(direction) => moveLayer(selectedLayer.id, direction)}
-                    onRemove={removeSelectedLayer}
-                    onUpdate={(patch) => updateLayer(selectedLayer.id, patch)}
-                  />
-                ) : (
-                  <p className="muted">Add a photo to start editing a cutout.</p>
+              <ViewModeSegment value={viewMode} onChange={setViewMode} />
+              <div className="preview-toolbar__actions">
+                {viewMode === 'preview' && (
+                  <button
+                    type="button"
+                    className="secondary-action view-center-btn"
+                    onClick={() => setCenterViewKey((k) => k + 1)}
+                    title="Reset camera to straight-on view"
+                  >
+                    <Target size={16} />
+                    Center view
+                  </button>
                 )}
+                <button
+                  className="primary-action"
+                  onClick={() => addLayer(PHOTO_BANK[layers.length % PHOTO_BANK.length].src)}
+                >
+                  <Plus size={18} />
+                  Add cutout
+                </button>
               </div>
+            </div>
+            <div className="photobank-strip" aria-label="Photobank">
+              <div className="photobank-strip__scroller">
+                {PHOTO_BANK.map((photo) => (
+                  <button
+                    key={photo.id}
+                    type="button"
+                    className="photobank-strip__item"
+                    onClick={() => addLayer(photo.src, { name: photo.name })}
+                    title={photo.name}
+                  >
+                    <img src={photo.src} alt={photo.name} />
+                  </button>
+                ))}
+              </div>
+              <label className="photobank-strip__upload">
+                <Upload size={18} aria-hidden />
+                <span>Upload</span>
+                <input type="file" accept="image/*" onChange={handleUpload} />
+              </label>
+            </div>
 
-              <div className="control-card wide">
-                <h3>
-                  <Layers size={18} />
-                  Layer stack
-                </h3>
-                <div className="layer-list">
-                  {layers
-                    .map((layer, index) => ({ layer, index }))
-                    .reverse()
-                    .map(({ layer, index }) => (
-                      <div key={layer.id} className={`layer-item ${selectedId === layer.id ? 'active' : ''}`}>
-                        <button className="layer-thumb" onClick={() => setSelectedId(layer.id)} aria-label={`Select ${layer.name}`}>
-                          {layer.fillMode === 'photo' ? (
-                            <img src={layer.image} alt="" />
-                          ) : (
-                            <span className="color-thumb" style={{ backgroundColor: layer.color }} />
-                          )}
-                        </button>
-                        <button className="layer-summary" onClick={() => setSelectedId(layer.id)}>
-                          <strong>{layer.name}</strong>
-                          <span>
-                            {layer.shape} / z {index + 1}
-                          </span>
-                        </button>
-                        <div className="layer-buttons">
-                          <button onClick={() => moveLayer(layer.id, 'down')} disabled={index === 0} aria-label="Send backward">
-                            <ArrowDown size={15} />
-                          </button>
-                          <button onClick={() => moveLayer(layer.id, 'up')} disabled={index === layers.length - 1} aria-label="Bring forward">
-                            <ArrowUp size={15} />
-                          </button>
+            <div className="canvas-area">
+              <div className="canvas-area__board canvas-area__board--main" ref={canvasHostRef}>
+                <ThreeCollagePreview
+                  layers={layers}
+                  selectedLayerId={selectedId}
+                  width={canvasSize.w}
+                  height={canvasSize.h}
+                  viewMode={viewMode}
+                  centerViewKey={centerViewKey}
+                  onSelectLayer={setSelectedId}
+                  onUpdateLayer={updateLayer}
+                />
+                {!layerPanelOpen && (
+                  <button
+                    type="button"
+                    className="layer-panel-reveal"
+                    onClick={() => setLayerPanelOpen(true)}
+                    title="Show layer panel"
+                    aria-label="Show layer panel"
+                  >
+                    <Maximize2 size={18} />
+                    <span>Layer</span>
+                  </button>
+                )}
+                {layerPanelOpen && (
+                  <aside
+                    className="layer-floating"
+                    aria-label="Layer options"
+                  >
+                    <div className="layer-floating__head">
+                      <h2 className="layer-floating__title">
+                        <SlidersVertical size={18} aria-hidden />
+                        Layer
+                      </h2>
+                      <button
+                        type="button"
+                        className="layer-floating__hide"
+                        onClick={() => setLayerPanelOpen(false)}
+                        title="Hide layer panel"
+                        aria-label="Hide layer panel"
+                      >
+                        <PanelLeft size={18} />
+                      </button>
+                    </div>
+                    <div className="layer-floating__body">
+                      {layers.length > 0 && (
+                        <div className="layer-floating__section">
+                          <h3 className="layer-floating__section-title">
+                            <Layers size={16} aria-hidden />
+                            Stack
+                          </h3>
+                          <div className="layer-list layer-list--floating">
+                            {layers
+                              .map((layer, index) => ({ layer, index }))
+                              .reverse()
+                              .map(({ layer, index }) => (
+                                <div
+                                  key={layer.id}
+                                  className={`layer-item ${selectedId === layer.id ? 'active' : ''}`}
+                                >
+                                  <button
+                                    className="layer-thumb"
+                                    type="button"
+                                    onClick={() => setSelectedId(layer.id)}
+                                    aria-label={`Select ${layer.name}`}
+                                  >
+                                    {layer.fillMode === 'photo' ? (
+                                      <img src={layer.image} alt="" />
+                                    ) : (
+                                      <span className="color-thumb" style={{ backgroundColor: layer.color }} />
+                                    )}
+                                  </button>
+                                  <button
+                                    className="layer-summary"
+                                    type="button"
+                                    onClick={() => setSelectedId(layer.id)}
+                                  >
+                                    <strong>{layer.name}</strong>
+                                  </button>
+                                  <div className="layer-buttons">
+                                    <button
+                                      type="button"
+                                      onClick={() => moveLayer(layer.id, 'down')}
+                                      disabled={index === 0}
+                                      aria-label="Send backward"
+                                    >
+                                      <ArrowDown size={15} />
+                                    </button>
+                                    <button
+                                      type="button"
+                                      onClick={() => moveLayer(layer.id, 'up')}
+                                      disabled={index === layers.length - 1}
+                                      aria-label="Bring forward"
+                                    >
+                                      <ArrowUp size={15} />
+                                    </button>
+                                  </div>
+                                </div>
+                              ))}
+                          </div>
                         </div>
-                      </div>
-                    ))}
-                </div>
+                      )}
+                      {selectedLayer ? (
+                        <div className="layer-floating__section layer-floating__section--edit">
+                          <h3 className="layer-floating__section-title">Properties</h3>
+                          <LayerEditor
+                            layer={selectedLayer}
+                            layerIndex={layers.findIndex((layer) => layer.id === selectedLayer.id)}
+                            layerCount={layers.length}
+                            transformLocked={viewMode === 'preview'}
+                            onDuplicate={() => addLayer(selectedLayer.image, { ...selectedLayer, id: undefined })}
+                            onMove={(direction) => moveLayer(selectedLayer.id, direction)}
+                            onRemove={removeSelectedLayer}
+                            onUpdate={(patch) => updateLayer(selectedLayer.id, patch)}
+                          />
+                        </div>
+                      ) : (
+                        <p className="layer-floating__empty">Select a cutout on the board, or add one with Add cutout or from the strip above.</p>
+                      )}
+                    </div>
+                  </aside>
+                )}
               </div>
             </div>
           </section>
@@ -241,28 +361,11 @@ export default function App({ layers, selectedId, setLayers, setSelectedId }: Ap
   );
 }
 
-type FeatureProps = {
-  icon: React.ReactNode;
-  title: string;
-  text: string;
-};
-
-function Feature({ icon, title, text }: FeatureProps) {
-  return (
-    <div className="feature-card">
-      {icon}
-      <div>
-        <strong>{title}</strong>
-        <span>{text}</span>
-      </div>
-    </div>
-  );
-}
-
 type LayerEditorProps = {
   layer: CollageLayer;
   layerIndex: number;
   layerCount: number;
+  transformLocked: boolean;
   onDuplicate: () => void;
   onMove: (direction: 'up' | 'down') => void;
   onRemove: () => void;
@@ -273,11 +376,13 @@ function LayerEditor({
   layer,
   layerIndex,
   layerCount,
+  transformLocked,
   onDuplicate,
   onMove,
   onRemove,
   onUpdate,
 }: LayerEditorProps) {
+  const t = transformLocked;
   return (
     <>
       <label className="text-control">
@@ -285,44 +390,78 @@ function LayerEditor({
         <input value={layer.name} onChange={(event) => onUpdate({ name: event.target.value })} />
       </label>
 
-      <div className="shape-grid">
-        {SHAPES.map((shape) => (
+      <div className="shape-grid shape-grid--masks">
+        {SHAPE_OPTIONS.map((opt) => (
           <button
-            key={shape}
-            className={`shape-option ${layer.shape === shape ? 'active' : ''}`}
-            onClick={() => onUpdate({ shape })}
+            type="button"
+            key={opt.id}
+            className={`shape-option ${layer.shape === opt.id ? 'active' : ''}`}
+            disabled={t}
+            onClick={() => onUpdate({ shape: opt.id as ShapeKind })}
+            title={opt.type === 'mask' ? 'SVG mask' : 'Rectangle'}
           >
-            {shape}
+            {opt.label}
           </button>
         ))}
       </div>
 
+      <label className="mask-invert">
+        <input
+          type="checkbox"
+          checked={layer.maskInverted}
+          disabled={t}
+          onChange={(e) => onUpdate({ maskInverted: e.target.checked })}
+        />
+        <span>Invert mask (show image outside the cutout)</span>
+      </label>
+
       <div className="mode-switch">
         {(['photo', 'color'] as FillMode[]).map((mode) => (
-          <button key={mode} className={layer.fillMode === mode ? 'active' : ''} onClick={() => onUpdate({ fillMode: mode })}>
+          <button
+            type="button"
+            key={mode}
+            className={layer.fillMode === mode ? 'active' : ''}
+            disabled={t}
+            onClick={() => onUpdate({ fillMode: mode })}
+          >
             {mode === 'photo' ? 'Original photo' : 'Pure color'}
           </button>
         ))}
       </div>
 
       <div className="swatch-grid">
-        {COLORS.map((color) => (
+        {FILL_SWATCHES.map((color) => (
           <button
+            type="button"
             key={color}
             className={`swatch-option ${layer.color === color ? 'active' : ''}`}
             style={{ backgroundColor: color }}
+            disabled={t}
             onClick={() => onUpdate({ fillMode: 'color', color })}
             aria-label={`Use ${color}`}
           />
         ))}
-        <input type="color" value={layer.color} onChange={(event) => onUpdate({ fillMode: 'color', color: event.target.value })} />
+        <input
+          type="color"
+          value={layer.color}
+          disabled={t}
+          onChange={(event) => onUpdate({ fillMode: 'color', color: event.target.value })}
+        />
       </div>
 
       <div className="range-group">
-        <Range label="Rotation" value={layer.rotation} min={-30} max={30} step={1} suffix="deg" onChange={(rotation) => onUpdate({ rotation })} />
-        <Range label="Horizontal" value={layer.x} min={-2.4} max={2.4} step={0.1} onChange={(x) => onUpdate({ x })} />
-        <Range label="Vertical" value={layer.y} min={-1.6} max={1.6} step={0.1} onChange={(y) => onUpdate({ y })} />
-        <Range label="Scale" value={layer.scale} min={0.45} max={1.7} step={0.05} onChange={(scale) => onUpdate({ scale })} />
+        <Range
+          label="Rotation"
+          value={layer.rotation}
+          min={-180}
+          max={180}
+          step={0.5}
+          suffix="deg"
+          disabled={t}
+          onChange={(rotation) => onUpdate({ rotation })}
+        />
+        <Range label="Horizontal" value={layer.x} min={-2.4} max={2.4} step={0.1} disabled={t} onChange={(x) => onUpdate({ x })} />
+        <Range label="Vertical" value={layer.y} min={-1.6} max={1.6} step={0.1} disabled={t} onChange={(y) => onUpdate({ y })} />
       </div>
 
       <div className="action-row">
@@ -358,10 +497,11 @@ type RangeProps = {
   max: number;
   step: number;
   suffix?: string;
+  disabled?: boolean;
   onChange: (value: number) => void;
 };
 
-function Range({ label, value, min, max, step, suffix = '', onChange }: RangeProps) {
+function Range({ label, value, min, max, step, suffix = '', disabled, onChange }: RangeProps) {
   return (
     <div className="range-row">
       <label>
@@ -377,6 +517,7 @@ function Range({ label, value, min, max, step, suffix = '', onChange }: RangePro
         max={max}
         step={step}
         value={value}
+        disabled={disabled}
         onChange={(event) => onChange(Number(event.target.value))}
       />
     </div>

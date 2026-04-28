@@ -1,4 +1,6 @@
-export type ShapeKind = "circle" | "square" | "triangle" | "blob" | "star" | "hexagon";
+import type { ShapeId } from "./shapeCatalog";
+
+export type ShapeKind = ShapeId;
 
 export type FillMode = "photo" | "color";
 
@@ -13,6 +15,8 @@ export type CollageLayer = {
   id: string;
   name: string;
   shape: ShapeKind;
+  /** If true, image shows outside the cutout; inside is clear (SVG / rectangle frame). */
+  maskInverted: boolean;
   fillMode: FillMode;
   image: string;
   color: string;
