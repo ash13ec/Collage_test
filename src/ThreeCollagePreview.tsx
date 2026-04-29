@@ -1,4 +1,12 @@
-import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
+import {
+  forwardRef,
+  useEffect,
+  useImperativeHandle,
+  useLayoutEffect,
+  useMemo,
+  useRef,
+  useState,
+} from 'react';
 import * as THREE from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import { attachPhotoToMesh, isPhotoSrcCurrent } from './photoTexture';
@@ -22,7 +30,12 @@ export type ThreeCollagePreviewProps = {
   onUpdateLayer: (id: string, patch: Partial<CollageLayer>) => void;
 };
 
-const SHAPE_CURVE_DIVISIONS = 24;
+export type ThreeCollagePreviewHandle = {
+  /** Renders the current view to a PNG (no selection handles) and starts a download. */
+  exportPng: () => void;
+};
+
+const SHAPE_CURVE_DIVISIONS = 12;
 
 function boardW(w: number) {
   return w / 140;
@@ -290,13 +303,14 @@ function syncLayers(
   height: number,
   viewMode: ViewMode,
   bundles: Map<string, LayerBundleInternal>,
+  suppressEditChrome: boolean = false,
 ) {
   const usedIds = new Set<string>();
   let index = 0;
   for (const layer of orderedLayers) {
     const z = index * 0.16;
     const isSelected = layer.id === selectedId;
-    const showEditUi = isSelected && viewMode === 'edit';
+    const showEditUi = isSelected && viewMode === 'edit' && !suppressEditChrome;
     usedIds.add(layer.id);
     const existing = bundles.get(layer.id);
     if (!existing) {
@@ -338,7 +352,20 @@ function wrapAngleDeltaRad(a0: number, a1: number) {
   return Math.atan2(Math.sin(a1 - a0), Math.cos(a1 - a0));
 }
 
-export function ThreeCollagePreview({
+function triggerPngDownload(dataUrl: string, baseName: string) {
+  const a = document.createElement('a');
+  a.href = dataUrl;
+  a.download = `${baseName}.png`;
+  a.rel = 'noopener';
+  a.style.display = 'none';
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+}
+
+export const ThreeCollagePreview = forwardRef<ThreeCollagePreviewHandle, ThreeCollagePreviewProps>(
+  function ThreeCollagePreview(
+  {
   layers,
   selectedLayerId,
   width,
@@ -347,7 +374,9 @@ export function ThreeCollagePreview({
   centerViewKey,
   onSelectLayer,
   onUpdateLayer,
-}: ThreeCollagePreviewProps) {
+},
+  ref,
+) {
   const mountRef = useRef<HTMLDivElement | null>(null);
   const [sceneReady, setSceneReady] = useState(false);
   const groupRef = useRef<THREE.Group | null>(null);
@@ -423,7 +452,7 @@ export function ThreeCollagePreview({
     scene.background = readCssColor('--color-surface-raised', '#fafafa');
     sceneRef.current = scene;
 
-    const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: false });
+    const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: false, preserveDrawingBuffer: true });
     renderer.outputColorSpace = THREE.SRGBColorSpace;
     renderer.toneMapping = THREE.NoToneMapping;
     renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
@@ -827,5 +856,41 @@ export function ThreeCollagePreview({
     c.update();
   }, [centerViewKey]);
 
+  useImperativeHandle(
+    ref,
+    () => ({
+      exportPng: () => {
+        const group = groupRef.current;
+        const scene = sceneRef.current;
+        const camera = cameraRef.current;
+        const renderer = rendererRef.current;
+        const controls = controlsRef.current;
+        if (!group || !scene || !camera || !renderer) return;
+
+        const ordered = [...layersRef.current].sort((a, b) => a.depth - b.depth);
+        const w = widthRef.current;
+        const h = heightRef.current;
+        const selected = selectedRef.current;
+        const mode = viewModeRef.current;
+        const bundles = bundleByIdRef.current;
+
+        const stamp = new Date();
+        const baseName = `collage-${stamp.getFullYear()}-${String(stamp.getMonth() + 1).padStart(2, '0')}-${String(stamp.getDate()).padStart(2, '0')}-${String(stamp.getHours()).padStart(2, '0')}${String(stamp.getMinutes()).padStart(2, '0')}`;
+
+        syncLayers(group, ordered, selected, w, h, mode, bundles, true);
+        controls?.update();
+        renderer.render(scene, camera);
+        const dataUrl = renderer.domElement.toDataURL('image/png');
+        syncLayers(group, ordered, selected, w, h, mode, bundles, false);
+
+        triggerPngDownload(dataUrl, baseName);
+      },
+    }),
+    [],
+  );
+
   return <div className="three-preview" data-view-mode={viewMode} ref={mountRef} aria-label="Collage preview" />;
-}
+  },
+);
+
+ThreeCollagePreview.displayName = 'ThreeCollagePreview';

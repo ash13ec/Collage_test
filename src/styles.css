@@ -29,15 +29,14 @@
   --shadow-inset-muted: inset 0 0 0 1px var(--color-ink);
   --state-hover-bg: rgba(0, 0, 0, 0.04);
 
-  --font-sans: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI",
-    sans-serif;
+  --font-sans: Helvetica, Arial, sans-serif;
   --font-weight-normal: 600;
   --font-weight-strong: 800;
   --text-xs: 0.65rem;
   --text-sm: 0.75rem;
   --text-md: 0.85rem;
   --text-body: 0.9rem;
-  --letter-spacing-caps: 0.08em;
+  --letter-spacing-uppercases: 0em;
   --radius-none: 0;
   --border-width: 2px;
 
@@ -183,14 +182,14 @@ button {
 
 .view-mode-segment__name {
   font-size: 0.8rem;
-  letter-spacing: 0.1em;
+  letter-spacing:var(--letter-spacing-uppercase);
   text-transform: uppercase;
 }
 
 .view-mode-segment__hint {
   font-size: 0.7rem;
   font-weight: 600;
-  letter-spacing: 0.02em;
+  letter-spacing:var(--letter-spacing-uppercase);
   opacity: 0.9;
   text-align: center;
   line-height: 1.2;
@@ -261,7 +260,7 @@ button {
   color: var(--color-on-ink);
   font-size: 0.65rem;
   font-weight: 800;
-  letter-spacing: 0.08em;
+  letter-spacing:var(--letter-spacing-uppercase);
   text-transform: uppercase;
   border: 2px solid var(--color-ink);
   cursor: pointer;
@@ -329,7 +328,7 @@ button {
   gap: 8px;
   font-size: 0.8rem;
   font-weight: 800;
-  letter-spacing: 0.08em;
+  letter-spacing:var(--letter-spacing-uppercase);
   text-transform: uppercase;
 }
 
@@ -372,15 +371,114 @@ button {
 }
 
 .layer-floating__section-title {
-  margin: 0 0 8px;
+  margin: 0 0 4px;
   display: flex;
   align-items: center;
   gap: 6px;
   font-size: 0.68rem;
   font-weight: 800;
-  letter-spacing: 0.1em;
+  letter-spacing: var(--letter-spacing-uppercase);
   text-transform: uppercase;
   color: var(--color-ink);
+}
+
+.layer-floating__section-hint {
+  margin: 0 0 10px;
+  font-size: 0.72rem;
+  line-height: 1.35;
+  font-weight: 600;
+  color: var(--color-text-secondary);
+}
+
+.layer-floating__section-toggle {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  padding: 6px 0 8px;
+  margin: 0 0 2px;
+  border: none;
+  border-bottom: 2px solid var(--color-border-hairline);
+  background: transparent;
+  color: var(--color-ink);
+  font: inherit;
+  cursor: pointer;
+  text-align: left;
+}
+
+.layer-floating__section-toggle:hover {
+  background: var(--state-hover-bg);
+}
+
+.layer-floating__section-toggle-label {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 0.68rem;
+  font-weight: 800;
+  letter-spacing: var(--letter-spacing-uppercase);
+  text-transform: uppercase;
+}
+
+.layer-floating__section-toggle-text {
+  font-size: 0.68rem;
+  font-weight: 800;
+  letter-spacing: var(--letter-spacing-uppercase);
+  text-transform: uppercase;
+}
+
+.layer-floating__chevron {
+  flex-shrink: 0;
+  transition: transform 0.16s ease;
+  color: var(--color-ink);
+}
+
+.layer-floating__chevron[data-expanded="false"] {
+  transform: rotate(-90deg);
+}
+
+.layer-editor {
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+}
+
+.layer-editor__group {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+  min-width: 0;
+}
+
+.layer-editor__group .layer-floating__section-hint {
+  margin-top: 2px;
+  margin-bottom: 8px;
+}
+
+.layer-editor__group .layer-floating__section-title {
+  margin-bottom: 0;
+}
+
+.layer-editor__shape-body {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-top: 2px;
+}
+
+.text-control.text-control--block {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-bottom: 0;
+  text-transform: none;
+  font-size: 0.9rem;
+  font-weight: 600;
+}
+
+.text-control.text-control--block input {
+  text-transform: none;
+  font-weight: 600;
 }
 
 .layer-list--floating {
@@ -411,7 +509,7 @@ button {
   color: var(--color-on-ink);
   font-size: 0.65rem;
   font-weight: 800;
-  letter-spacing: 0.08em;
+  letter-spacing: var(--letter-spacing-uppercase);
   text-transform: uppercase;
   border: 2px solid var(--color-ink);
   border-right: 0;
@@ -444,7 +542,7 @@ button {
 .size-direct__title {
   font-size: 0.75rem;
   font-weight: 800;
-  letter-spacing: 0.1em;
+  letter-spacing: var(--letter-spacing-uppercase);
   text-transform: uppercase;
 }
 
@@ -536,7 +634,7 @@ button {
   gap: 9px;
   margin: 0 0 14px;
   text-transform: uppercase;
-  letter-spacing: 0.06em;
+  letter-spacing:  var(--letter-spacing-uppercase);
 }
 
 .control-card h3 svg {
@@ -659,7 +757,7 @@ input[type="color"]:disabled,
   min-height: 52px;
   text-transform: uppercase;
   font-size: 0.8rem;
-  letter-spacing: 0.04em;
+  letter-spacing: var(--letter-spacing-uppercase);
 }
 
 .mode-switch {
@@ -684,7 +782,7 @@ input[type="color"]:disabled,
   padding: 11px 12px;
   text-transform: uppercase;
   font-size: 0.75rem;
-  letter-spacing: 0.05em;
+  letter-spacing: var(--letter-spacing-uppercase);
 }
 
 .mode-switch button:last-child {
@@ -713,7 +811,7 @@ input[type="color"]:disabled,
   gap: 6px;
   font-size: 0.85rem;
   font-weight: 800;
-  letter-spacing: 0.04em;
+  letter-spacing: var(--letter-spacing-uppercase);
   margin-bottom: 12px;
   text-transform: uppercase;
 }
@@ -772,7 +870,7 @@ input[type="color"]:disabled,
   padding: 12px 16px;
   text-transform: uppercase;
   font-size: 0.8rem;
-  letter-spacing: 0.04em;
+  letter-spacing: 0em;
 }
 
 .primary-action {
@@ -902,9 +1000,13 @@ input[type="color"] {
     grid-template-columns: 1fr;
   }
 
+  /* Cap preview height: flex:1 on the board was still growing the column past 40vh */
   .canvas-area__board--main {
-    height: min(60vh, 520px);
-    min-height: 320px;
+    flex: 0 0 auto;
+    width: 100%;
+    height: 50vh;
+    /* max-height: 40vh; */
+    min-height: 0;
   }
 
   .preview-toolbar {
@@ -940,11 +1042,4 @@ input[type="color"] {
     margin-top: 10px;
   }
 
-  
-  
-
-  .layer-panel-reveal {
-    top: 8px;
-    right: 0;
-  }
 }

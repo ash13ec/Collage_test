@@ -2,6 +2,8 @@ import { ChangeEvent, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import {
   ArrowDown,
   ArrowUp,
+  ChevronDown,
+  Download,
   ImagePlus,
   Layers,
   Maximize2,
@@ -16,7 +18,7 @@ import {
 import { PHOTO_BANK } from './photobank';
 import { DEFAULT_SHAPE, SHAPE_OPTIONS, type ShapeId } from './shapeCatalog';
 import { readFillSwatches } from './fillSwatches';
-import { ThreeCollagePreview } from './ThreeCollagePreview';
+import { ThreeCollagePreview, type ThreeCollagePreviewHandle } from './ThreeCollagePreview';
 import type { CollageLayer, FillMode, ShapeKind } from './types';
 
 const FILL_SWATCHES = readFillSwatches();
@@ -107,7 +109,9 @@ export default function App({ layers, selectedId, setLayers, setSelectedId }: Ap
   const [viewMode, setViewMode] = useState<ViewMode>('edit');
   const [centerViewKey, setCenterViewKey] = useState(0);
   const [layerPanelOpen, setLayerPanelOpen] = useState(true);
+  const [stackSectionOpen, setStackSectionOpen] = useState(true);
   const canvasHostRef = useRef<HTMLDivElement>(null);
+  const previewRef = useRef<ThreeCollagePreviewHandle>(null);
   const [canvasSize, setCanvasSize] = useState({ w: 1200, h: 640 });
 
   useLayoutEffect(() => {
@@ -189,6 +193,15 @@ export default function App({ layers, selectedId, setLayers, setSelectedId }: Ap
             <div className="preview-toolbar">
               <ViewModeSegment value={viewMode} onChange={setViewMode} />
               <div className="preview-toolbar__actions">
+                <button
+                  type="button"
+                  className="secondary-action"
+                  onClick={() => previewRef.current?.exportPng()}
+                  title="Download the current view as a PNG (editor handles are hidden)"
+                >
+                  <Download size={16} />
+                  Export PNG
+                </button>
                 {viewMode === 'preview' && (
                   <button
                     type="button"
@@ -233,6 +246,7 @@ export default function App({ layers, selectedId, setLayers, setSelectedId }: Ap
             <div className="canvas-area">
               <div className="canvas-area__board canvas-area__board--main" ref={canvasHostRef}>
                 <ThreeCollagePreview
+                  ref={previewRef}
                   layers={layers}
                   selectedLayerId={selectedId}
                   width={canvasSize.w}
@@ -277,71 +291,87 @@ export default function App({ layers, selectedId, setLayers, setSelectedId }: Ap
                     <div className="layer-floating__body">
                       {layers.length > 0 && (
                         <div className="layer-floating__section">
-                          <h3 className="layer-floating__section-title">
-                            <Layers size={16} aria-hidden />
-                            Stack
-                          </h3>
-                          <div className="layer-list layer-list--floating">
-                            {layers
-                              .map((layer, index) => ({ layer, index }))
-                              .reverse()
-                              .map(({ layer, index }) => (
-                                <div
-                                  key={layer.id}
-                                  className={`layer-item ${selectedId === layer.id ? 'active' : ''}`}
-                                >
-                                  <button
-                                    className="layer-thumb"
-                                    type="button"
-                                    onClick={() => setSelectedId(layer.id)}
-                                    aria-label={`Select ${layer.name}`}
+                          <button
+                            type="button"
+                            className="layer-floating__section-toggle"
+                            id="layer-stack-toggle"
+                            aria-controls="layer-stack-panel"
+                            aria-expanded={stackSectionOpen}
+                            onClick={() => setStackSectionOpen((o) => !o)}
+                          >
+                            <ChevronDown
+                              className="layer-floating__chevron"
+                              size={16}
+                              aria-hidden
+                              data-expanded={stackSectionOpen}
+                            />
+                            <span className="layer-floating__section-toggle-label">
+                              <Layers size={16} aria-hidden />
+                              Stack
+                            </span>
+                          </button>
+                          {stackSectionOpen && (
+                            <>
+                              <p className="layer-floating__section-hint">Top of list appears in front on the board</p>
+                              <div className="layer-list layer-list--floating" id="layer-stack-panel" role="region" aria-labelledby="layer-stack-toggle">
+                              {layers
+                                .map((layer, index) => ({ layer, index }))
+                                .reverse()
+                                .map(({ layer, index }) => (
+                                  <div
+                                    key={layer.id}
+                                    className={`layer-item ${selectedId === layer.id ? 'active' : ''}`}
                                   >
-                                    {layer.fillMode === 'photo' ? (
-                                      <img src={layer.image} alt="" />
-                                    ) : (
-                                      <span className="color-thumb" style={{ backgroundColor: layer.color }} />
-                                    )}
-                                  </button>
-                                  <button
-                                    className="layer-summary"
-                                    type="button"
-                                    onClick={() => setSelectedId(layer.id)}
-                                  >
-                                    <strong>{layer.name}</strong>
-                                  </button>
-                                  <div className="layer-buttons">
                                     <button
+                                      className="layer-thumb"
                                       type="button"
-                                      onClick={() => moveLayer(layer.id, 'down')}
-                                      disabled={index === 0}
-                                      aria-label="Send backward"
+                                      onClick={() => setSelectedId(layer.id)}
+                                      aria-label={`Select ${layer.name}`}
                                     >
-                                      <ArrowDown size={15} />
+                                      {layer.fillMode === 'photo' ? (
+                                        <img src={layer.image} alt="" />
+                                      ) : (
+                                        <span className="color-thumb" style={{ backgroundColor: layer.color }} />
+                                      )}
                                     </button>
                                     <button
+                                      className="layer-summary"
                                       type="button"
-                                      onClick={() => moveLayer(layer.id, 'up')}
-                                      disabled={index === layers.length - 1}
-                                      aria-label="Bring forward"
+                                      onClick={() => setSelectedId(layer.id)}
                                     >
-                                      <ArrowUp size={15} />
+                                      <strong>{layer.name}</strong>
                                     </button>
+                                    <div className="layer-buttons">
+                                      <button
+                                        type="button"
+                                        onClick={() => moveLayer(layer.id, 'down')}
+                                        disabled={index === 0}
+                                        aria-label="Send backward"
+                                      >
+                                        <ArrowDown size={15} />
+                                      </button>
+                                      <button
+                                        type="button"
+                                        onClick={() => moveLayer(layer.id, 'up')}
+                                        disabled={index === layers.length - 1}
+                                        aria-label="Bring forward"
+                                      >
+                                        <ArrowUp size={15} />
+                                      </button>
+                                    </div>
                                   </div>
-                                </div>
-                              ))}
-                          </div>
+                                ))}
+                              </div>
+                            </>
+                          )}
                         </div>
                       )}
                       {selectedLayer ? (
                         <div className="layer-floating__section layer-floating__section--edit">
-                          <h3 className="layer-floating__section-title">Properties</h3>
                           <LayerEditor
                             layer={selectedLayer}
-                            layerIndex={layers.findIndex((layer) => layer.id === selectedLayer.id)}
-                            layerCount={layers.length}
                             transformLocked={viewMode === 'preview'}
                             onDuplicate={() => addLayer(selectedLayer.image, { ...selectedLayer, id: undefined })}
-                            onMove={(direction) => moveLayer(selectedLayer.id, direction)}
                             onRemove={removeSelectedLayer}
                             onUpdate={(patch) => updateLayer(selectedLayer.id, patch)}
                           />
@@ -363,118 +393,185 @@ export default function App({ layers, selectedId, setLayers, setSelectedId }: Ap
 
 type LayerEditorProps = {
   layer: CollageLayer;
-  layerIndex: number;
-  layerCount: number;
   transformLocked: boolean;
   onDuplicate: () => void;
-  onMove: (direction: 'up' | 'down') => void;
   onRemove: () => void;
   onUpdate: (patch: Partial<CollageLayer>) => void;
 };
 
 function LayerEditor({
   layer,
-  layerIndex,
-  layerCount,
   transformLocked,
   onDuplicate,
-  onMove,
   onRemove,
   onUpdate,
 }: LayerEditorProps) {
   const t = transformLocked;
+  const [nameOpen, setNameOpen] = useState(true);
+  const [shapeOpen, setShapeOpen] = useState(true);
+
   return (
-    <>
-      <label className="text-control">
-        Name
-        <input value={layer.name} onChange={(event) => onUpdate({ name: event.target.value })} />
-      </label>
-
-      <div className="shape-grid shape-grid--masks">
-        {SHAPE_OPTIONS.map((opt) => (
-          <button
-            type="button"
-            key={opt.id}
-            className={`shape-option ${layer.shape === opt.id ? 'active' : ''}`}
-            disabled={t}
-            onClick={() => onUpdate({ shape: opt.id as ShapeKind })}
-            title={opt.type === 'mask' ? 'SVG mask' : 'Rectangle'}
-          >
-            {opt.label}
-          </button>
-        ))}
-      </div>
-
-      <label className="mask-invert">
-        <input
-          type="checkbox"
-          checked={layer.maskInverted}
-          disabled={t}
-          onChange={(e) => onUpdate({ maskInverted: e.target.checked })}
-        />
-        <span>Invert mask (show image outside the cutout)</span>
-      </label>
-
-      <div className="mode-switch">
-        {(['photo', 'color'] as FillMode[]).map((mode) => (
-          <button
-            type="button"
-            key={mode}
-            className={layer.fillMode === mode ? 'active' : ''}
-            disabled={t}
-            onClick={() => onUpdate({ fillMode: mode })}
-          >
-            {mode === 'photo' ? 'Original photo' : 'Pure color'}
-          </button>
-        ))}
-      </div>
-
-      <div className="swatch-grid">
-        {FILL_SWATCHES.map((color) => (
-          <button
-            type="button"
-            key={color}
-            className={`swatch-option ${layer.color === color ? 'active' : ''}`}
-            style={{ backgroundColor: color }}
-            disabled={t}
-            onClick={() => onUpdate({ fillMode: 'color', color })}
-            aria-label={`Use ${color}`}
+    <div className="layer-editor">
+      <div className="layer-editor__group">
+        <button
+          type="button"
+          className="layer-floating__section-toggle"
+          id="layer-name-toggle"
+          aria-controls="layer-name-panel"
+          aria-expanded={nameOpen}
+          onClick={() => setNameOpen((o) => !o)}
+        >
+          <ChevronDown
+            className="layer-floating__chevron"
+            size={16}
+            aria-hidden
+            data-expanded={nameOpen}
           />
-        ))}
-        <input
-          type="color"
-          value={layer.color}
-          disabled={t}
-          onChange={(event) => onUpdate({ fillMode: 'color', color: event.target.value })}
-        />
+          <span className="layer-floating__section-toggle-text">Name</span>
+        </button>
+        {nameOpen && (
+          <div
+            className="text-control text-control--block"
+            id="layer-name-panel"
+            role="region"
+            aria-labelledby="layer-name-toggle"
+          >
+            <p className="layer-floating__section-hint">Label in the layer list and for screen readers</p>
+            <input
+              value={layer.name}
+              onChange={(event) => onUpdate({ name: event.target.value })}
+              aria-label="Layer name"
+              placeholder="Layer name"
+            />
+          </div>
+        )}
       </div>
 
-      <div className="range-group">
-        <Range
-          label="Rotation"
-          value={layer.rotation}
-          min={-180}
-          max={180}
-          step={0.5}
-          suffix="deg"
-          disabled={t}
-          onChange={(rotation) => onUpdate({ rotation })}
-        />
-        <Range label="Horizontal" value={layer.x} min={-2.4} max={2.4} step={0.1} disabled={t} onChange={(x) => onUpdate({ x })} />
-        <Range label="Vertical" value={layer.y} min={-1.6} max={1.6} step={0.1} disabled={t} onChange={(y) => onUpdate({ y })} />
+      <div className="layer-editor__group">
+        <button
+          type="button"
+          className="layer-floating__section-toggle"
+          id="layer-shape-toggle"
+          aria-controls="layer-shape-panel"
+          aria-expanded={shapeOpen}
+          onClick={() => setShapeOpen((o) => !o)}
+        >
+          <ChevronDown
+            className="layer-floating__chevron"
+            size={16}
+            aria-hidden
+            data-expanded={shapeOpen}
+          />
+          <span className="layer-floating__section-toggle-text">Shape type</span>
+        </button>
+        {shapeOpen && (
+          <div
+            className="layer-editor__shape-body"
+            id="layer-shape-panel"
+            role="region"
+            aria-labelledby="layer-shape-toggle"
+          >
+            <p className="layer-floating__section-hint">Mask outline for this cutout</p>
+            <div className="shape-grid shape-grid--masks">
+              {SHAPE_OPTIONS.map((opt) => (
+                <button
+                  type="button"
+                  key={opt.id}
+                  className={`shape-option ${layer.shape === opt.id ? 'active' : ''}`}
+                  disabled={t}
+                  onClick={() => onUpdate({ shape: opt.id as ShapeKind })}
+                  title={opt.type === 'mask' ? 'SVG mask' : 'Rectangle'}
+                >
+                  {opt.label}
+                </button>
+              ))}
+            </div>
+
+            <label className="mask-invert">
+              <input
+                type="checkbox"
+                checked={layer.maskInverted}
+                disabled={t}
+                onChange={(e) => onUpdate({ maskInverted: e.target.checked })}
+              />
+              <span>Invert mask (show image outside the cutout)</span>
+            </label>
+          </div>
+        )}
       </div>
 
-      <div className="action-row">
-        <button className="secondary-action" onClick={onDuplicate}>
-          <ImagePlus size={16} />
-          Duplicate
-        </button>
-        <button className="secondary-action danger" onClick={onRemove}>
-          <Trash2 size={16} />
-          Delete
-        </button>
+      <div className="layer-editor__group">
+        <h3 className="layer-floating__section-title">Fill</h3>
+        <p className="layer-floating__section-hint">How this layer is colored</p>
+        <div className="mode-switch">
+          {(['photo', 'color'] as FillMode[]).map((mode) => (
+            <button
+              type="button"
+              key={mode}
+              className={layer.fillMode === mode ? 'active' : ''}
+              disabled={t}
+              onClick={() => onUpdate({ fillMode: mode })}
+            >
+              {mode === 'photo' ? 'Original photo' : 'Pure color'}
+            </button>
+          ))}
+        </div>
+
+        <div className="swatch-grid">
+          {FILL_SWATCHES.map((color) => (
+            <button
+              type="button"
+              key={color}
+              className={`swatch-option ${layer.color === color ? 'active' : ''}`}
+              style={{ backgroundColor: color }}
+              disabled={t}
+              onClick={() => onUpdate({ fillMode: 'color', color })}
+              aria-label={`Use ${color}`}
+            />
+          ))}
+          <input
+            type="color"
+            value={layer.color}
+            disabled={t}
+            onChange={(event) => onUpdate({ fillMode: 'color', color: event.target.value })}
+          />
+        </div>
       </div>
-    </>
+
+      <div className="layer-editor__group">
+        <h3 className="layer-floating__section-title">Position &amp; rotation</h3>
+        <p className="layer-floating__section-hint">Place the cutout on the board</p>
+        <div className="range-group">
+          <Range
+            label="Rotation"
+            value={layer.rotation}
+            min={-180}
+            max={180}
+            step={0.5}
+            suffix="deg"
+            disabled={t}
+            onChange={(rotation) => onUpdate({ rotation })}
+          />
+          <Range label="Horizontal" value={layer.x} min={-2.4} max={2.4} step={0.1} disabled={t} onChange={(x) => onUpdate({ x })} />
+          <Range label="Vertical" value={layer.y} min={-1.6} max={1.6} step={0.1} disabled={t} onChange={(y) => onUpdate({ y })} />
+        </div>
+      </div>
+
+      <div className="layer-editor__group">
+        <h3 className="layer-floating__section-title">Actions</h3>
+        <p className="layer-floating__section-hint">This layer</p>
+        <div className="action-row">
+          <button className="secondary-action" onClick={onDuplicate}>
+            <ImagePlus size={16} />
+            Duplicate
+          </button>
+          <button className="secondary-action danger" onClick={onRemove}>
+            <Trash2 size={16} />
+            Delete
+          </button>
+        </div>
+      </div>
+    </div>
   );
 }
 
